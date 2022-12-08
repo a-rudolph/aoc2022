@@ -144,26 +144,61 @@ const parseLine = (line: string) => {
   createItem(type, name);
 };
 
-const runScript = (input: string) => {
+const runScript = (input: string, printDir: boolean = false) => {
+  dir.current = createHome();
+
   const lines = getLines(input);
 
   lines.forEach(parseLine);
 
   console.log("script complete");
-  Home.print();
+
+  if (printDir) {
+    Home.print();
+  }
 };
 
-const Home = new Dir("/", "/");
+export const createHome = () => new Dir("/", "/");
+const Home = createHome();
 
-const dir: { current: Dir } = { current: Home };
+export const dir: { current: Dir } = { current: Home };
 
 export const one = (input: string) => {
   runScript(input);
 
-  console.log(dir.current.getSize());
+  const candidates = getDirs().filter((size) => size <= 100000);
+  let sum = 0;
+
+  for (let size of candidates) {
+    sum += size;
+  }
+
+  return sum;
 };
 
-const input = `$ cd /
+const getDirs = (prev: number[] = []) => {
+  const dirs = prev;
+
+  const addDirs = (dir: Dir) => {
+    const children = dir.getChildren();
+
+    const size = dir.getSize();
+
+    dirs.push(size);
+
+    children.forEach((item) => {
+      if (item instanceof File) return;
+
+      addDirs(item);
+    });
+  };
+
+  addDirs(Home);
+
+  return dirs;
+};
+
+export const testInput = `$ cd /
 $ ls
 dir a
 14848514 b.txt
@@ -187,6 +222,29 @@ $ ls
 5626152 d.ext
 7214296 k`;
 
-one(input);
+const TOTAL = 70000000;
+const REQUIRED = 30000000;
 
-export const two = () => {};
+export const two = (input: string) => {
+  runScript(input);
+
+  const available = TOTAL - Home.getSize();
+
+  const need = REQUIRED - available;
+
+  const candidates = getDirs();
+
+  let smallest = 0;
+
+  for (let size of candidates) {
+    if (size >= need) {
+      if (!smallest || size < smallest) {
+        smallest = size;
+      }
+    }
+  }
+
+  return smallest;
+};
+
+// runScript(testInput, true);
