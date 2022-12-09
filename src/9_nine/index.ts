@@ -1,3 +1,5 @@
+import { input } from "./input"
+
 type Coord = `${number}|${number}`
 type Dir = 'R' | 'L' | 'U' | 'D'
 
@@ -24,12 +26,49 @@ const getNext = (current: Coord, dir: Dir) => {
   }
 }
 
+const getNextCoord = (a: Coord, b: Coord) => {
+  const [ax, ay] = parse(a)
+  const [bx, by] = parse(b)
+
+  let x = bx
+  let y = by
+
+  if (ax > bx) {
+    x++
+  }
+
+  if (ax < bx) {
+    x--
+  }
+
+  if (ay > by) {
+    y++
+  }
+
+  if (ay < by) {
+    y--
+  }
+
+  const result = join(x, y)
+
+  console.log(a, b, result)
+
+  return result
+}
+
+const start = '0|0'
+
 class Grid {
-  private head: Coord = '0|0'
-  private visited: Coord[] = ['0|0']
-  
-  private verbose = false
-  private logEveryMove = true
+  private rope: Coord[] = []
+
+  private visited: Coord[] = [start]
+
+  private verbose = true
+  private logEveryMove = false
+
+  constructor(length: number = 2) {
+    this.rope = Array(length).fill(start)
+  }
 
   private log(...args: Parameters<typeof console.log>) {
     if (!this.verbose) return
@@ -37,10 +76,14 @@ class Grid {
     console.log(...args)
   }
 
+  private get head(): Coord {
+    return this.rope[0]
+  }
+
   private get tail(): Coord {
     return this.visited[this.visited.length - 1]
   }
-  
+
   private isAdjacent(a: Coord = this.head, b: Coord = this.tail) {
     const [hx, hy] = parse(a)
     const [tx, ty] = parse(b)
@@ -52,13 +95,27 @@ class Grid {
   }
 
   private moveHead(dir: Dir) {
-    const prevHead = this.head
+    let next = getNext(this.head, dir)
 
-    this.head = getNext(prevHead, dir)
+    this.moveKnot(0, next)
+  }
 
-    if (this.isAdjacent()) return
+  private moveKnot(index: number, coord: Coord) {
+    const next = getNextCoord(coord, this.rope[index])
+    this.rope[index] = coord
 
-    this.moveTail(prevHead)
+    if (!this.rope[index + 1]) {
+      // we're the tail
+      this.moveTail(coord)
+      return
+    }
+
+    if (this.isAdjacent(this.rope[index], this.rope[index + 1])) {
+      this.log('\n')
+      return
+    }
+
+    this.moveKnot(index + 1, next)
   }
 
   private moveTail(coord: Coord) {
@@ -94,27 +151,39 @@ class Grid {
   }
 
   public print() {
-    const [hx, hy] = parse(this.head)
-    const [tx, ty] = parse(this.tail)
+    if (!this.verbose) return
 
-    const rows: string[] = []
+    const row: string[] = Array(6).fill('.')
 
-    for (let y = 0; y <= Math.max(hy, ty, 5); y++) {
-      for (let x = 0; x <= Math.max(hx, tx, 5); x++) {
-        let char = '.'
+    const map = Array(6).fill(null).map((_) => {
+      return row.slice()
+    })
 
-        switch (true) {
-          case x === hx && y === hy:
-            char = 'H'
-            break
-          case x === tx && y === ty:
-            char = 'T'
-            break
-        }
-
-        rows[y] = (rows[y] || '').concat(char)
+    this.rope.forEach((coord, i, all) => {
+      const [x, y] = parse(coord)
+      
+      const prev = map[y][x]
+      
+      if (prev !== '.') return
+      
+      let char = '.'
+      
+      switch (true) {
+        case i === 0:
+          char = 'H'
+          break
+        case i === all.length - 1:
+          char = 'T'
+          break
+        default:
+          char = String(i)
       }
-    }
+
+      map[y][x] = char
+    })
+
+
+    const rows = map.map((row) => row.join(''))
 
     const output = [...rows].reverse().join('\n').concat('\n')
 
@@ -135,3 +204,37 @@ export const one = (input: string) => {
 
   return grid.getVisitedCount()
 }
+
+export const two = (input: string) => {
+  const grid = new Grid(10)
+
+  const commands = input.split('\n').slice(0, 1)
+
+  commands.forEach((command) => {
+    const [dir, count] = command.split(' ')
+
+    grid.move(dir as Dir, Number(count))
+  })
+
+  return grid.getVisitedCount()
+}
+
+const input1 = `R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2`;
+
+const input2 = `R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20`;
+
+console.log(two(input1))
