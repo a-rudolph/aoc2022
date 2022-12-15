@@ -1,137 +1,204 @@
-type Coord = `${number}|${number}`
-type Dir = 'R' | 'L' | 'U' | 'D'
+type Coord = `${number}|${number}`;
+type Dir = "R" | "L" | "U" | "D";
 
 const parse = (coord: Coord) => {
-  return coord.split('|').map(Number) as [number, number]
-}
+  return coord.split("|").map(Number) as [number, number];
+};
 
 const join = (x: number, y: number) => {
-  return `${x}|${y}` as Coord
-}
+  return `${x}|${y}` as Coord;
+};
 
 const getNext = (current: Coord, dir: Dir) => {
-  const [x, y] = parse(current)
+  const [x, y] = parse(current);
 
   switch (dir) {
-    case 'D':
-      return join(x, y - 1)
-    case 'U':
-      return join(x, y + 1)
-    case 'L':
-      return join(x - 1, y)
-    case 'R':
-      return join(x + 1, y)
+    case "D":
+      return join(x, y - 1);
+    case "U":
+      return join(x, y + 1);
+    case "L":
+      return join(x - 1, y);
+    case "R":
+      return join(x + 1, y);
   }
-}
+};
+
+const getFollowup = (h: Coord, t: Coord) => {
+  const [hx, hy] = parse(h);
+  const [tx, ty] = parse(t);
+
+  const avgx = (hx + tx) / 2;
+  const avgy = (hy + ty) / 2;
+
+  const x = hx <= tx ? Math.floor(avgx) : Math.ceil(avgx);
+  const y = hy <= ty ? Math.floor(avgy) : Math.ceil(avgy);
+
+  return join(x, y);
+};
 
 class Grid {
-  private head: Coord = '0|0'
-  private visited: Coord[] = ['0|0']
-  
-  private verbose = false
-  private logEveryMove = true
+  private visited: Coord[] = ["0|0"];
+  private rope: Coord[] = [];
+
+  private verbose = false;
+  private logEveryMove = true;
+
+  constructor({
+    length = 2,
+    verbose = false,
+    start = "0|0",
+  }: { length?: number; verbose?: boolean; start?: Coord } = {}) {
+    this.verbose = verbose;
+    this.rope = Array(length).fill(start);
+    this.visited = [start];
+
+    this.log("init grid");
+    this.print();
+  }
 
   private log(...args: Parameters<typeof console.log>) {
-    if (!this.verbose) return
+    if (!this.verbose) return;
 
-    console.log(...args)
+    console.log(...args);
   }
 
+  private get head(): Coord {
+    return this.rope[0];
+  }
   private get tail(): Coord {
-    return this.visited[this.visited.length - 1]
+    return this.rope[this.rope.length - 1];
   }
-  
+
   private isAdjacent(a: Coord = this.head, b: Coord = this.tail) {
-    const [hx, hy] = parse(a)
-    const [tx, ty] = parse(b)
+    const [hx, hy] = parse(a);
+    const [tx, ty] = parse(b);
 
-    const diffX = Math.abs(hx - tx) <= 1
-    const diffY = Math.abs(hy - ty) <= 1
+    const diffX = Math.abs(hx - tx) <= 1;
+    const diffY = Math.abs(hy - ty) <= 1;
 
-    return diffX && diffY
+    return diffX && diffY;
   }
 
   private moveHead(dir: Dir) {
-    const prevHead = this.head
+    const prevHead = this.head;
 
-    this.head = getNext(prevHead, dir)
+    const next = getNext(prevHead, dir);
 
-    if (this.isAdjacent()) return
-
-    this.moveTail(prevHead)
+    this.moveRope(0, next);
   }
 
-  private moveTail(coord: Coord) {
-    this.visited.push(coord)
+  private moveRope(knot: number, destination: Coord) {
+    const h = this.rope[knot];
+    const t = this.rope[knot + 1];
+
+    if (!h) return;
+
+    this.rope[knot] = destination;
+
+    if (!t) {
+      this.moveTail();
+      return;
+    }
+
+    if (this.isAdjacent(destination, t)) return;
+
+    this.moveRope(knot + 1, getFollowup(destination, t));
+  }
+
+  private moveTail() {
+    if (this.tail === this.visited[this.visited.length - 1]) return;
+
+    this.visited.push(this.tail);
   }
 
   public move(dir: Dir, count: number) {
-    this.log(dir, count)
+    this.log(dir, count);
 
     for (let i = 0; i < count; i++) {
-      this.moveHead(dir)
+      this.moveHead(dir);
 
       if (this.logEveryMove) {
-        this.print()
+        this.print();
       }
     }
-    this.print()
-
+    this.print();
   }
 
   public getVisitedCount() {
-    const found: {[key: string]: boolean} = {}
+    const found: { [key: string]: boolean } = {};
 
     this.visited.forEach((coord) => {
-      if (found[coord]) return false
+      if (found[coord]) return false;
 
-      found[coord] = true
+      found[coord] = true;
 
-      return true
-    })
+      return true;
+    });
 
-    return Object.keys(found).length
+    return Object.keys(found).length;
   }
 
   public print() {
-    const [hx, hy] = parse(this.head)
-    const [tx, ty] = parse(this.tail)
+    if (!this.verbose) return;
 
-    const rows: string[] = []
+    const x = 20;
+    const y = 20;
 
-    for (let y = 0; y <= Math.max(hy, ty, 5); y++) {
-      for (let x = 0; x <= Math.max(hx, tx, 5); x++) {
-        let char = '.'
+    const row = ".".repeat(x);
 
-        switch (true) {
-          case x === hx && y === hy:
-            char = 'H'
-            break
-          case x === tx && y === ty:
-            char = 'T'
-            break
-        }
+    const map = Array(y)
+      .fill(".")
+      .map(() => {
+        return [...row];
+      });
 
-        rows[y] = (rows[y] || '').concat(char)
+    this.rope.forEach((knot, i) => {
+      const [x, y] = parse(knot);
+
+      if (map[y][x] !== ".") return;
+
+      if (i === 0) {
+        map[y][x] = "H";
+
+        return;
       }
-    }
 
-    const output = [...rows].reverse().join('\n').concat('\n')
+      map[y][x] = `${i}`;
+    });
 
-    this.log(output)
+    const rows = map.map((row) => row.join("")).reverse();
+
+    const output = rows.join("\n").concat("\n");
+
+    this.log(output);
   }
 }
 
 export const one = (input: string) => {
-  const grid = new Grid()
+  const grid = new Grid({ verbose: false });
 
-  const commands = input.split('\n')
+  const commands = input.split("\n");
 
   commands.forEach((command) => {
-    const [dir, count] = command.split(' ')
+    const [dir, count] = command.split(" ");
 
-    grid.move(dir as Dir, Number(count))
-  })
+    grid.move(dir as Dir, Number(count));
+  });
 
-  return grid.getVisitedCount()
-}
+  return grid.getVisitedCount();
+};
+
+export const two = (input: string) => {
+  const grid = new Grid({ length: 10 });
+
+  const commands = input.split("\n");
+
+  commands.forEach((command) => {
+    const [dir, count] = command.split(" ");
+
+    grid.move(dir as Dir, Number(count));
+  });
+
+  return grid.getVisitedCount();
+};
